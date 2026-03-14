@@ -16,6 +16,7 @@ import {
   filterCharacter,
 } from '../filters/visibility';
 import { AuthenticatedRequest, Role } from '../types';
+import { getMap, revealMapArea, getEncounter, updateEncounter, getNpc, updateNpc } from '../store';
 
 const router = Router();
 
@@ -33,7 +34,7 @@ router.get(
   requirePermission('encounter:read:public'),
   (req: Request, res: Response): void => {
     const session = (req as AuthenticatedRequest).session;
-    const encounter = {
+    const encounter = getEncounter(req.params.encounterId as string) ?? {
       id: req.params.encounterId as string,
       name: 'Goblin Ambush',
       description: 'A group of goblins blocks the road.',
@@ -41,6 +42,33 @@ router.get(
       hiddenDetails: { reinforcements: true, secretExit: 'north wall' } as Record<string, unknown>,
     };
     res.status(200).json(filterEncounter(encounter, session.role as Role));
+  },
+);
+
+/**
+ * PATCH /campaign/encounters/:encounterId
+ * Update mobs, initiative order, round, and active participant – DM only.
+ *
+ * Accepted body fields: mobs, initiativeOrder, round, activeParticipantId
+ */
+router.patch(
+  '/encounters/:encounterId',
+  authenticate,
+  requirePermission('encounter:manage'),
+  (req: Request, res: Response): void => {
+    const { encounterId } = req.params;
+    const { mobs, initiativeOrder, round, activeParticipantId } = req.body ?? {};
+    const updated = updateEncounter(encounterId as string, {
+      ...(mobs !== undefined && { mobs }),
+      ...(initiativeOrder !== undefined && { initiativeOrder }),
+      ...(round !== undefined && { round }),
+      ...(activeParticipantId !== undefined && { activeParticipantId }),
+    });
+    if (!updated) {
+      res.status(404).json({ error: `Encounter '${encounterId}' not found` });
+      return;
+    }
+    res.status(200).json(updated);
   },
 );
 
@@ -71,7 +99,7 @@ router.get(
   requirePermission('npc:read:visible'),
   (req: Request, res: Response): void => {
     const session = (req as AuthenticatedRequest).session;
-    const npc = {
+    const npc = getNpc(req.params.npcId as string) ?? {
       id: req.params.npcId as string,
       name: 'Zara the Merchant',
       revealed: true,
@@ -86,6 +114,41 @@ router.get(
       return;
     }
     res.status(200).json(filtered);
+  },
+);
+
+/**
+ * PATCH /campaign/npcs/:npcId
+ * Reveal an NPC to players or update public description – DM only.
+ *
+ * Accepted body fields: revealed (boolean), publicDescription (string)
+ */
+router.patch(
+  '/npcs/:npcId',
+  authenticate,
+  requirePermission('npc:manage'),
+  (req: Request, res: Response): void => {
+    const { npcId } = req.params;
+    const { revealed, publicDescription } = req.body ?? {};
+
+    if (revealed !== undefined && typeof revealed !== 'boolean') {
+      res.status(400).json({ error: "'revealed' must be a boolean" });
+      return;
+    }
+    if (publicDescription !== undefined && typeof publicDescription !== 'string') {
+      res.status(400).json({ error: "'publicDescription' must be a string" });
+      return;
+    }
+
+    const updated = updateNpc(npcId as string, {
+      ...(revealed !== undefined && { revealed }),
+      ...(publicDescription !== undefined && { publicDescription }),
+    });
+    if (!updated) {
+      res.status(404).json({ error: `NPC '${npcId}' not found` });
+      return;
+    }
+    res.status(200).json(updated);
   },
 );
 
@@ -116,7 +179,7 @@ router.get(
   requirePermission('map:read:visible'),
   (req: Request, res: Response): void => {
     const session = (req as AuthenticatedRequest).session;
-    const map = {
+    const map = getMap(req.params.mapId as string) ?? {
       id: req.params.mapId as string,
       name: 'Dungeon Level 1',
       dmOverlay: { traps: [{ x: 3, y: 4 }] } as Record<string, unknown>,
@@ -128,6 +191,32 @@ router.get(
       ],
     };
     res.status(200).json(filterMap(map, session.role as Role));
+  },
+);
+
+/**
+ * PATCH /campaign/map/:mapId/areas/:areaId
+ * Reveal or hide a specific map area – DM only (fog-of-war control).
+ *
+ * Body: { revealed: boolean }
+ */
+router.patch(
+  '/map/:mapId/areas/:areaId',
+  authenticate,
+  requirePermission('map:manage'),
+  (req: Request, res: Response): void => {
+    const { mapId, areaId } = req.params;
+    const { revealed } = req.body ?? {};
+    if (typeof revealed !== 'boolean') {
+      res.status(400).json({ error: "'revealed' must be a boolean" });
+      return;
+    }
+    const area = revealMapArea(mapId as string, areaId as string, revealed);
+    if (!area) {
+      res.status(404).json({ error: `Map '${mapId}' or area '${areaId}' not found` });
+      return;
+    }
+    res.status(200).json(area);
   },
 );
 
@@ -180,6 +269,55 @@ router.get(
       return;
     }
     res.status(200).json(filtered);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Table display view (issue #9)
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /campaign/view/table
+ * Kiosk-friendly full-screen view for TV/table display.
+ *
+ * Returns aggregated public campaign data (visible map areas, public encounter
+ * state, revealed NPCs) filtered to the caller's role.  Designed for TABLE
+ * clients but accessible to any authenticated role.
+ */
+router.get(
+  '/view/table',
+  authenticate,
+  requirePermission('session:read'),
+  (req: Request, res: Response): void => {
+    const session = (req as AuthenticatedRequest).session;
+    const role = session.role as Role;
+
+    const map = getMap('map-1') ?? {
+      id: 'map-1',
+      name: 'Dungeon Level 1',
+      dmOverlay: {},
+      hiddenAreas: [],
+      areas: [{ id: 'area-1', name: 'Entry Hall', revealed: true }],
+    };
+
+    const encounter = getEncounter('enc-1') ?? {
+      id: 'enc-1',
+      name: 'Goblin Ambush',
+      description: 'A group of goblins blocks the road.',
+    };
+
+    const npc = getNpc('npc-1') ?? {
+      id: 'npc-1',
+      name: 'Zara the Merchant',
+      revealed: true,
+      publicDescription: 'A travelling merchant selling exotic goods.',
+    };
+
+    res.status(200).json({
+      map: filterMap(map, role),
+      encounter: filterEncounter(encounter, role),
+      npcs: [filterNpc(npc, role)].filter(Boolean),
+    });
   },
 );
 

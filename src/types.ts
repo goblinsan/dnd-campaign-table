@@ -57,12 +57,43 @@ export interface MapArea {
   revealed: boolean;
 }
 
+export interface StatusEffect {
+  name: string;
+  duration?: number;
+}
+
+export interface Mob {
+  id: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  statusEffects: StatusEffect[];
+  /** DM-only field: tactical notes for this mob. */
+  dmNotes?: string;
+}
+
+export interface InitiativeEntry {
+  participantId: string;
+  name: string;
+  initiative: number;
+  /** True when this participant is a player character. */
+  isPlayer: boolean;
+}
+
 export interface Encounter {
   id: string;
   name: string;
   description?: string;
   dmNotes?: string;
   hiddenDetails?: Record<string, unknown>;
+  /** Combat participants (mobs). DM-only notes per mob are filtered for non-DM roles. */
+  mobs?: Mob[];
+  /** Current initiative order for all participants in this encounter. */
+  initiativeOrder?: InitiativeEntry[];
+  /** Current combat round number. */
+  round?: number;
+  /** ID of the participant whose turn it currently is. */
+  activeParticipantId?: string;
 }
 
 export interface Npc {

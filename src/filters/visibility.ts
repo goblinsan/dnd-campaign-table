@@ -15,19 +15,25 @@
  */
 
 import { ROLES } from '../roles';
-import { Role, Encounter, Npc, GameMap, MapArea, Notes, Character } from '../types';
+import { Role, Encounter, Mob, Npc, GameMap, MapArea, Notes, Character } from '../types';
 
 /**
  * Filter an encounter object for a given role.
  * Hidden DM notes and un-revealed encounter details are removed for
- * non-DM roles.
+ * non-DM roles.  Per-mob DM notes are also stripped.
  */
 export function filterEncounter(encounter: Encounter | null | undefined, role: Role): Encounter | null | undefined {
   if (!encounter || typeof encounter !== 'object') return encounter;
   if (role === ROLES.DM) return encounter;
 
   const { dmNotes: _dmNotes, hiddenDetails: _hiddenDetails, ...publicFields } = encounter;
-  return publicFields;
+
+  // Strip per-mob DM notes so they never reach PLAYER or TABLE clients
+  const filteredMobs: Array<Omit<Mob, 'dmNotes'>> | undefined = Array.isArray(encounter.mobs)
+    ? encounter.mobs.map(({ dmNotes: _mn, ...publicMobFields }) => publicMobFields)
+    : encounter.mobs;
+
+  return { ...publicFields, ...(filteredMobs !== undefined ? { mobs: filteredMobs } : {}) };
 }
 
 /**
