@@ -4,10 +4,10 @@
  * binding to a network port.
  */
 
-const express = require('express');
-const rateLimit = require('express-rate-limit');
-const sessionRoutes = require('./routes/sessions');
-const campaignRoutes = require('./routes/campaign');
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import sessionRoutes from './routes/sessions';
+import campaignRoutes from './routes/campaign';
 
 const app = express();
 app.use(express.json());
@@ -28,4 +28,4 @@ app.use('/campaign', campaignRoutes);
 // Health-check
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
 
-module.exports = app;
+export default app;

@@ -14,22 +14,19 @@
  *   TABLE  – same as PLAYER minus character-sheet data
  */
 
-const { ROLES } = require('../roles');
+import { ROLES } from '../roles';
+import { Role, Encounter, Npc, GameMap, MapArea, Notes, Character } from '../types';
 
 /**
  * Filter an encounter object for a given role.
  * Hidden DM notes and un-revealed encounter details are removed for
  * non-DM roles.
- *
- * @param {object} encounter
- * @param {string} role
- * @returns {object}
  */
-function filterEncounter(encounter, role) {
+export function filterEncounter(encounter: Encounter | null | undefined, role: Role): Encounter | null | undefined {
   if (!encounter || typeof encounter !== 'object') return encounter;
   if (role === ROLES.DM) return encounter;
 
-  const { dmNotes, hiddenDetails, ...publicFields } = encounter;
+  const { dmNotes: _dmNotes, hiddenDetails: _hiddenDetails, ...publicFields } = encounter;
   return publicFields;
 }
 
@@ -38,35 +35,29 @@ function filterEncounter(encounter, role) {
  * Hidden state (e.g. secret motivations, undisclosed HP) is stripped for
  * non-DM roles.  NPCs that have not been revealed are omitted entirely.
  *
- * @param {object} npc
- * @param {string} role
- * @returns {object|null} – null means "do not include this NPC"
+ * @returns null when the NPC should not be included in the response
  */
-function filterNpc(npc, role) {
+export function filterNpc(npc: Npc | null | undefined, role: Role): Npc | null | undefined {
   if (!npc || typeof npc !== 'object') return npc;
   if (role === ROLES.DM) return npc;
 
   if (!npc.revealed) return null;
 
-  const { hiddenMotivation, hiddenHp, dmNotes, ...publicFields } = npc;
+  const { hiddenMotivation: _hm, hiddenHp: _hhp, dmNotes: _dn, ...publicFields } = npc;
   return publicFields;
 }
 
 /**
  * Filter a map object for a given role.
  * Unexplored / DM-hidden areas are stripped for non-DM roles.
- *
- * @param {object} map
- * @param {string} role
- * @returns {object}
  */
-function filterMap(map, role) {
+export function filterMap(map: GameMap | null | undefined, role: Role): GameMap | null | undefined {
   if (!map || typeof map !== 'object') return map;
   if (role === ROLES.DM) return map;
 
-  const { hiddenAreas, dmOverlay, ...publicFields } = map;
-  const visibleAreas = Array.isArray(map.areas)
-    ? map.areas.filter((a) => a.revealed)
+  const { hiddenAreas: _ha, dmOverlay: _do, ...publicFields } = map;
+  const visibleAreas: MapArea[] | undefined = Array.isArray(map.areas)
+    ? map.areas.filter((a: MapArea) => a.revealed)
     : map.areas;
   return { ...publicFields, areas: visibleAreas };
 }
@@ -74,12 +65,8 @@ function filterMap(map, role) {
 /**
  * Filter a DM-notes object.
  * Non-DM roles receive null (no notes at all).
- *
- * @param {object|null} notes
- * @param {string} role
- * @returns {object|null}
  */
-function filterNotes(notes, role) {
+export function filterNotes(notes: Notes | null, role: Role): Notes | null {
   if (role === ROLES.DM) return notes;
   return null;
 }
@@ -88,13 +75,12 @@ function filterNotes(notes, role) {
  * Filter a character-sheet object for a given role and requesting identity.
  * TABLE clients receive no character data.
  * PLAYER clients may only see their own character (matched by userId).
- *
- * @param {object} character
- * @param {string} role
- * @param {string} [requestingUserId]
- * @returns {object|null}
  */
-function filterCharacter(character, role, requestingUserId) {
+export function filterCharacter(
+  character: Character | null | undefined,
+  role: Role,
+  requestingUserId?: string,
+): Character | null | undefined {
   if (!character || typeof character !== 'object') return character;
   if (role === ROLES.DM) return character;
   if (role === ROLES.TABLE) return null;
@@ -103,11 +89,3 @@ function filterCharacter(character, role, requestingUserId) {
   if (character.ownerId === requestingUserId) return character;
   return null;
 }
-
-module.exports = {
-  filterEncounter,
-  filterNpc,
-  filterMap,
-  filterNotes,
-  filterCharacter,
-};

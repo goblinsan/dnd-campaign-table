@@ -6,7 +6,9 @@
  *   router.get('/join',  authenticate, requireRole(ROLES.DM, ROLES.PLAYER), handler)
  */
 
-const { hasPermission, ROLES } = require('../roles');
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { hasPermission } from '../roles';
+import { AuthenticatedRequest, Permission, Role } from '../types';
 
 /**
  * Middleware that allows only requests whose session role holds the given
@@ -15,16 +17,16 @@ const { hasPermission, ROLES } = require('../roles');
  *
  * Responds 403 when the role lacks the permission.
  *
- * @param {string} permission – capability string from the capability matrix
- * @returns {import('express').RequestHandler}
+ * @param permission – capability string from the capability matrix
  */
-function requirePermission(permission) {
-  return (req, res, next) => {
-    const role = req.session && req.session.role;
+export function requirePermission(permission: Permission): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const role = (req as AuthenticatedRequest).session?.role;
     if (!hasPermission(role, permission)) {
-      return res.status(403).json({
+      res.status(403).json({
         error: `Role '${role}' does not have permission '${permission}'`,
       });
+      return;
     }
     next();
   };
@@ -36,20 +38,18 @@ function requirePermission(permission) {
  *
  * Responds 403 when the role is not in the allowed list.
  *
- * @param {...string} allowedRoles – values from ROLES.*
- * @returns {import('express').RequestHandler}
+ * @param allowedRoles – values from ROLES.*
  */
-function requireRole(...allowedRoles) {
-  const allowed = new Set(allowedRoles.map((r) => r.toLowerCase()));
-  return (req, res, next) => {
-    const role = req.session && req.session.role;
+export function requireRole(...allowedRoles: Role[]): RequestHandler {
+  const allowed = new Set<string>(allowedRoles.map((r) => r.toLowerCase()));
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const role = (req as AuthenticatedRequest).session?.role;
     if (!allowed.has(role)) {
-      return res.status(403).json({
+      res.status(403).json({
         error: `Role '${role}' is not allowed to access this resource`,
       });
+      return;
     }
     next();
   };
 }
-
-module.exports = { requirePermission, requireRole };

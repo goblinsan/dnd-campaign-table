@@ -2,20 +2,21 @@
  * Tests for server-side visibility filters (Issue #3).
  */
 
-const { ROLES } = require('../src/roles');
-const {
+import { ROLES } from '../src/roles';
+import {
   filterEncounter,
   filterNpc,
   filterMap,
   filterNotes,
   filterCharacter,
-} = require('../src/filters/visibility');
+} from '../src/filters/visibility';
+import { Encounter, Npc, GameMap, Notes, Character } from '../src/types';
 
 // ---------------------------------------------------------------------------
 // filterEncounter
 // ---------------------------------------------------------------------------
 describe('filterEncounter()', () => {
-  const encounter = {
+  const encounter: Encounter = {
     id: 'enc-1',
     name: 'Goblin Ambush',
     description: 'Goblins on the road.',
@@ -28,14 +29,14 @@ describe('filterEncounter()', () => {
   });
 
   test('PLAYER does not receive dmNotes or hiddenDetails', () => {
-    const result = filterEncounter(encounter, ROLES.PLAYER);
+    const result = filterEncounter(encounter, ROLES.PLAYER) as Encounter;
     expect(result.dmNotes).toBeUndefined();
     expect(result.hiddenDetails).toBeUndefined();
     expect(result.name).toBe('Goblin Ambush');
   });
 
   test('TABLE does not receive dmNotes or hiddenDetails', () => {
-    const result = filterEncounter(encounter, ROLES.TABLE);
+    const result = filterEncounter(encounter, ROLES.TABLE) as Encounter;
     expect(result.dmNotes).toBeUndefined();
     expect(result.hiddenDetails).toBeUndefined();
   });
@@ -50,7 +51,7 @@ describe('filterEncounter()', () => {
 // filterNpc
 // ---------------------------------------------------------------------------
 describe('filterNpc()', () => {
-  const revealedNpc = {
+  const revealedNpc: Npc = {
     id: 'npc-1',
     name: 'Zara',
     revealed: true,
@@ -59,7 +60,7 @@ describe('filterNpc()', () => {
     dmNotes: 'Guild contact',
     publicDescription: 'A merchant.',
   };
-  const hiddenNpc = { ...revealedNpc, revealed: false };
+  const hiddenNpc: Npc = { ...revealedNpc, revealed: false };
 
   test('DM receives the full NPC including hidden fields', () => {
     expect(filterNpc(revealedNpc, ROLES.DM)).toEqual(revealedNpc);
@@ -67,7 +68,7 @@ describe('filterNpc()', () => {
   });
 
   test('PLAYER receives only public fields of a revealed NPC', () => {
-    const result = filterNpc(revealedNpc, ROLES.PLAYER);
+    const result = filterNpc(revealedNpc, ROLES.PLAYER) as Npc;
     expect(result).not.toBeNull();
     expect(result.hiddenMotivation).toBeUndefined();
     expect(result.hiddenHp).toBeUndefined();
@@ -84,7 +85,7 @@ describe('filterNpc()', () => {
   });
 
   test('TABLE receives only public fields of a revealed NPC', () => {
-    const result = filterNpc(revealedNpc, ROLES.TABLE);
+    const result = filterNpc(revealedNpc, ROLES.TABLE) as Npc;
     expect(result).not.toBeNull();
     expect(result.hiddenMotivation).toBeUndefined();
     expect(result.hiddenHp).toBeUndefined();
@@ -99,7 +100,7 @@ describe('filterNpc()', () => {
 // filterMap
 // ---------------------------------------------------------------------------
 describe('filterMap()', () => {
-  const map = {
+  const map: GameMap = {
     id: 'map-1',
     name: 'Dungeon L1',
     dmOverlay: { traps: [] },
@@ -115,15 +116,15 @@ describe('filterMap()', () => {
   });
 
   test('PLAYER receives only revealed areas, no dmOverlay or hiddenAreas', () => {
-    const result = filterMap(map, ROLES.PLAYER);
+    const result = filterMap(map, ROLES.PLAYER) as GameMap;
     expect(result.dmOverlay).toBeUndefined();
     expect(result.hiddenAreas).toBeUndefined();
     expect(result.areas).toHaveLength(1);
-    expect(result.areas[0].id).toBe('a1');
+    expect(result.areas![0].id).toBe('a1');
   });
 
   test('TABLE receives only revealed areas, no DM-private fields', () => {
-    const result = filterMap(map, ROLES.TABLE);
+    const result = filterMap(map, ROLES.TABLE) as GameMap;
     expect(result.dmOverlay).toBeUndefined();
     expect(result.hiddenAreas).toBeUndefined();
     expect(result.areas).toHaveLength(1);
@@ -134,7 +135,7 @@ describe('filterMap()', () => {
 // filterNotes
 // ---------------------------------------------------------------------------
 describe('filterNotes()', () => {
-  const notes = { sessionGoal: 'Reach the forest.', secretPlots: ['Innkeeper is a werewolf.'] };
+  const notes: Notes = { sessionGoal: 'Reach the forest.', secretPlots: ['Innkeeper is a werewolf.'] };
 
   test('DM receives notes', () => {
     expect(filterNotes(notes, ROLES.DM)).toEqual(notes);
@@ -153,7 +154,7 @@ describe('filterNotes()', () => {
 // filterCharacter
 // ---------------------------------------------------------------------------
 describe('filterCharacter()', () => {
-  const character = { id: 'char-1', ownerId: 'user-1', name: 'Elara', hp: 28 };
+  const character: Character = { id: 'char-1', ownerId: 'user-1', name: 'Elara', hp: 28 };
 
   test('DM receives any character', () => {
     expect(filterCharacter(character, ROLES.DM, 'dm-user')).toEqual(character);
@@ -164,7 +165,7 @@ describe('filterCharacter()', () => {
     expect(result).toEqual(character);
   });
 
-  test('PLAYER receives null for another player\'s character', () => {
+  test("PLAYER receives null for another player's character", () => {
     expect(filterCharacter(character, ROLES.PLAYER, 'user-2')).toBeNull();
   });
 

@@ -7,10 +7,12 @@
  *   TABLE  – Shared group/table display: public-only campaign content
  */
 
-const ROLES = Object.freeze({
-  DM: 'dm',
-  PLAYER: 'player',
-  TABLE: 'table',
+import { Role, Permission } from './types';
+
+export const ROLES = Object.freeze({
+  DM: 'dm' as Role,
+  PLAYER: 'player' as Role,
+  TABLE: 'table' as Role,
 });
 
 /**
@@ -35,8 +37,8 @@ const ROLES = Object.freeze({
  *   map:read:full          – view full map including hidden areas
  *   map:manage             – update map state
  */
-const CAPABILITIES = Object.freeze({
-  [ROLES.DM]: new Set([
+export const CAPABILITIES: Readonly<Record<Role, ReadonlySet<Permission>>> = Object.freeze({
+  dm: new Set<Permission>([
     'session:create',
     'session:read',
     'session:manage',
@@ -55,7 +57,7 @@ const CAPABILITIES = Object.freeze({
     'map:read:full',
     'map:manage',
   ]),
-  [ROLES.PLAYER]: new Set([
+  player: new Set<Permission>([
     'session:read',
     'character:read:own',
     'character:write',
@@ -63,7 +65,7 @@ const CAPABILITIES = Object.freeze({
     'npc:read:visible',
     'map:read:visible',
   ]),
-  [ROLES.TABLE]: new Set([
+  table: new Set<Permission>([
     'session:read',
     'encounter:read:public',
     'npc:read:visible',
@@ -74,13 +76,11 @@ const CAPABILITIES = Object.freeze({
 /**
  * Returns true when the given role possesses the requested permission.
  *
- * @param {string} role       – one of ROLES.*
- * @param {string} permission – capability string
- * @returns {boolean}
+ * @param role       – one of ROLES.*
+ * @param permission – capability string
  */
-function hasPermission(role, permission) {
-  const caps = CAPABILITIES[role];
-  return caps !== undefined && caps.has(permission);
+export function hasPermission(role: Role | string | undefined, permission: Permission | string | undefined): boolean {
+  if (!role || !permission) return false;
+  const caps = CAPABILITIES[role as Role];
+  return caps !== undefined && caps.has(permission as Permission);
 }
-
-module.exports = { ROLES, CAPABILITIES, hasPermission };

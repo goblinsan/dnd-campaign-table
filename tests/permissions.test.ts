@@ -5,12 +5,13 @@
  * guarding against role-boundary regressions.
  */
 
-const request = require('supertest');
-const app = require('../src/app');
-const { issueToken } = require('../src/auth');
-const { ROLES } = require('../src/roles');
+import request from 'supertest';
+import app from '../src/app';
+import { issueToken } from '../src/auth';
+import { ROLES } from '../src/roles';
+import { Role } from '../src/types';
 
-function makeToken(role, userId = 'user-1', sessionId = 'sess-1') {
+function makeToken(role: Role, userId = 'user-1', sessionId = 'sess-1'): string {
   return issueToken({ userId, role, sessionId });
 }
 
@@ -273,7 +274,7 @@ describe('GET /campaign/map/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.hiddenAreas).toBeUndefined();
     expect(res.body.dmOverlay).toBeUndefined();
-    expect(res.body.areas.every((a) => a.revealed)).toBe(true);
+    expect(res.body.areas.every((a: { revealed: boolean }) => a.revealed)).toBe(true);
   });
 
   test('TABLE receives only revealed map areas and no DM fields', async () => {
@@ -300,7 +301,6 @@ describe('GET /campaign/characters/:id', () => {
   });
 
   test('PLAYER can access their own character', async () => {
-    // The route uses req.session.sub as the ownerId default; pass ownerId=user-1
     const token = makeToken(ROLES.PLAYER, 'user-1');
     const res = await request(app)
       .get('/campaign/characters/char-1')
@@ -333,7 +333,7 @@ describe('GET /campaign/characters/:id', () => {
 describe('Token security edge cases', () => {
   test('tampered token is rejected with 401', async () => {
     const token = makeToken(ROLES.DM);
-    const [h, p, sig] = token.split('.');
+    const [h, p] = token.split('.');
     const res = await request(app)
       .get('/campaign/notes')
       .set('Authorization', `Bearer ${h}.${p}.invalidsignature`);

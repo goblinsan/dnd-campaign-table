@@ -2,7 +2,8 @@
  * Tests for the role definitions and capability matrix (Issue #1).
  */
 
-const { ROLES, CAPABILITIES, hasPermission } = require('../src/roles');
+import { ROLES, CAPABILITIES, hasPermission } from '../src/roles';
+import { Permission } from '../src/types';
 
 describe('ROLES', () => {
   test('defines DM, PLAYER, and TABLE roles', () => {

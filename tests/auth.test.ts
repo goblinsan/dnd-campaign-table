@@ -2,10 +2,11 @@
  * Tests for session token issuance and validation (Issue #2).
  */
 
-const { issueToken, verifyToken } = require('../src/auth');
-const { ROLES } = require('../src/roles');
+import { issueToken, verifyToken } from '../src/auth';
+import { ROLES } from '../src/roles';
+import { IssueTokenParams } from '../src/types';
 
-const VALID_PAYLOAD = { userId: 'user-1', role: ROLES.DM, sessionId: 'session-abc' };
+const VALID_PAYLOAD: IssueTokenParams = { userId: 'user-1', role: ROLES.DM, sessionId: 'session-abc' };
 
 describe('issueToken()', () => {
   test('returns a JWT string for valid inputs', () => {
@@ -55,7 +56,7 @@ describe('verifyToken()', () => {
 
   test('throws for a tampered token', () => {
     const token = issueToken(VALID_PAYLOAD);
-    const [h, p, sig] = token.split('.');
+    const [h, p] = token.split('.');
     expect(() => verifyToken(`${h}.${p}.invalidsignature`)).toThrow();
   });
 
