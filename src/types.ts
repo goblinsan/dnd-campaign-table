@@ -135,6 +135,78 @@ export interface SessionEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Soundscape (Issue #16)
+// ---------------------------------------------------------------------------
+
+export type AudioSceneType = 'ambient' | 'encounter' | 'sfx';
+
+export interface AudioTrack {
+  id: string;
+  url: string;
+  volume?: number;
+  loop?: boolean;
+}
+
+export interface AudioScene {
+  id: string;
+  name: string;
+  type: AudioSceneType;
+  tracks: AudioTrack[];
+  associatedLocationId?: string;
+  associatedEncounterId?: string;
+  /** Crossfade/transition duration in milliseconds. Defaults to 1000. */
+  transitionMs?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Feedback (Issue #17)
+// ---------------------------------------------------------------------------
+
+export interface FeedbackEntry {
+  id: string;
+  userId: string;
+  sessionId: string;
+  /** Clarity rating 1–5. */
+  clarity?: number;
+  /** Immersion rating 1–5. */
+  immersion?: number;
+  notes?: string;
+  submittedAt: number;
+}
+
+export interface SessionNote {
+  id: string;
+  sessionId: string;
+  content: string;
+  createdBy: string;
+  createdAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Performance Metrics (Issue #18)
+// ---------------------------------------------------------------------------
+
+export type ClientType = 'map' | 'table' | 'player' | 'dm';
+
+export interface ClientMetric {
+  id: string;
+  clientType: ClientType;
+  userId: string;
+  sessionId: string;
+  latencyMs?: number;
+  fps?: number;
+  reportedAt: number;
+}
+
+export interface PerformanceSummary {
+  totalReports: number;
+  averageLatencyMs: number;
+  averageFps: number;
+  clientBreakdown: Record<string, { count: number; averageLatencyMs: number; averageFps: number }>;
+  lastReportAt?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Express request augmentation
 // ---------------------------------------------------------------------------
 

@@ -9,6 +9,9 @@ import rateLimit from 'express-rate-limit';
 import sessionRoutes from './routes/sessions';
 import campaignRoutes from './routes/campaign';
 import syncRoutes from './routes/sync';
+import soundscapeRoutes from './routes/soundscape';
+import feedbackRoutes from './routes/feedback';
+import metricsRoutes from './routes/metrics';
 
 const app = express();
 app.use(express.json());
@@ -26,6 +29,9 @@ app.use(limiter);
 app.use('/sessions', sessionRoutes);
 app.use('/campaign', campaignRoutes);
 app.use('/campaign/sync', syncRoutes);
+app.use('/campaign/soundscape', soundscapeRoutes);
+app.use('/campaign/feedback', feedbackRoutes);
+app.use('/campaign/metrics', metricsRoutes);
 
 // Health-check
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
