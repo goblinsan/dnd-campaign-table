@@ -8,6 +8,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import sessionRoutes from './routes/sessions';
 import campaignRoutes from './routes/campaign';
+import syncRoutes from './routes/sync';
 
 const app = express();
 app.use(express.json());
@@ -24,6 +25,7 @@ app.use(limiter);
 
 app.use('/sessions', sessionRoutes);
 app.use('/campaign', campaignRoutes);
+app.use('/campaign/sync', syncRoutes);
 
 // Health-check
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
