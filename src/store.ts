@@ -8,7 +8,7 @@
  * In production this would be replaced by a persistent database.
  */
 
-import { GameMap, MapArea, Encounter, Mob, InitiativeEntry, StatusEffect, Npc } from './types';
+import { GameMap, MapArea, Encounter, Mob, InitiativeEntry, StatusEffect, Npc, AudioScene, FeedbackEntry, SessionNote, ClientMetric } from './types';
 
 // ---------------------------------------------------------------------------
 // Seed data – represents the initial campaign state
@@ -102,6 +102,17 @@ const npcs: Map<string, Npc> = new Map(
   [...defaultNpcs.entries()].map(([k, v]) => [k, { ...v }]),
 );
 
+// Soundscape store (Issue #16)
+const audioScenes: Map<string, AudioScene> = new Map();
+let activeSceneId: string | undefined;
+
+// Feedback store (Issue #17)
+const feedbackEntries: FeedbackEntry[] = [];
+const sessionNotes: SessionNote[] = [];
+
+// Performance Metrics store (Issue #18)
+const clientMetrics: ClientMetric[] = [];
+
 // ---------------------------------------------------------------------------
 // Map state helpers
 // ---------------------------------------------------------------------------
@@ -173,6 +184,163 @@ export function updateNpc(
 }
 
 // ---------------------------------------------------------------------------
+// Soundscape helpers (Issue #16)
+// ---------------------------------------------------------------------------
+
+export function getAudioScene(sceneId: string): AudioScene | undefined {
+  return audioScenes.get(sceneId);
+}
+
+export function listAudioScenes(): AudioScene[] {
+  return [...audioScenes.values()];
+}
+
+/**
+ * Create or fully replace an audio scene.
+ *
+ * @returns The stored AudioScene.
+ */
+export function upsertAudioScene(scene: AudioScene): AudioScene {
+  audioScenes.set(scene.id, scene);
+  return scene;
+}
+
+/**
+ * Mark the given scene as the currently active/playing scene.
+ *
+ * @returns The activated AudioScene, or undefined when not found.
+ */
+export function activateAudioScene(sceneId: string): AudioScene | undefined {
+  const scene = audioScenes.get(sceneId);
+  if (!scene) return undefined;
+  activeSceneId = sceneId;
+  return scene;
+}
+
+/** Return the currently active scene, or undefined when none is set. */
+export function getActiveAudioScene(): AudioScene | undefined {
+  if (!activeSceneId) return undefined;
+  return audioScenes.get(activeSceneId);
+}
+
+// ---------------------------------------------------------------------------
+// Feedback helpers (Issue #17)
+// ---------------------------------------------------------------------------
+
+/**
+ * Record a player feedback submission.
+ *
+ * @returns The stored FeedbackEntry.
+ */
+export function addFeedback(entry: FeedbackEntry): FeedbackEntry {
+  feedbackEntries.push(entry);
+  return entry;
+}
+
+/** Return all feedback entries, optionally filtered by sessionId. */
+export function getFeedback(sessionId?: string): FeedbackEntry[] {
+  if (!sessionId) return [...feedbackEntries];
+  return feedbackEntries.filter((e) => e.sessionId === sessionId);
+}
+
+/**
+ * Add a DM-authored session note.
+ *
+ * @returns The stored SessionNote.
+ */
+export function addSessionNote(note: SessionNote): SessionNote {
+  sessionNotes.push(note);
+  return note;
+}
+
+/** Return all session notes, optionally filtered by sessionId. */
+export function getSessionNotes(sessionId?: string): SessionNote[] {
+  if (!sessionId) return [...sessionNotes];
+  return sessionNotes.filter((n) => n.sessionId === sessionId);
+}
+
+// ---------------------------------------------------------------------------
+// Performance Metrics helpers (Issue #18)
+// ---------------------------------------------------------------------------
+
+/**
+ * Append a client performance metric report.
+ *
+ * @returns The stored ClientMetric.
+ */
+export function addClientMetric(metric: ClientMetric): ClientMetric {
+  clientMetrics.push(metric);
+  return metric;
+}
+
+/** Return all raw metric reports. */
+export function getAllMetrics(): ClientMetric[] {
+  return [...clientMetrics];
+}
+
+/**
+ * Compute an aggregate performance summary across all recorded metrics.
+ */
+export function getPerformanceSummary(): {
+  totalReports: number;
+  averageLatencyMs: number;
+  averageFps: number;
+  clientBreakdown: Record<string, { count: number; averageLatencyMs: number; averageFps: number }>;
+  lastReportAt?: number;
+} {
+  const breakdown: Record<
+    string,
+    { count: number; totalLatency: number; totalFps: number; latencyCount: number; fpsCount: number }
+  > = {};
+
+  let totalLatency = 0;
+  let latencyCount = 0;
+  let totalFps = 0;
+  let fpsCount = 0;
+  let lastReportAt: number | undefined;
+
+  for (const m of clientMetrics) {
+    if (!breakdown[m.clientType]) {
+      breakdown[m.clientType] = { count: 0, totalLatency: 0, totalFps: 0, latencyCount: 0, fpsCount: 0 };
+    }
+    breakdown[m.clientType].count++;
+
+    if (m.latencyMs !== undefined) {
+      breakdown[m.clientType].totalLatency += m.latencyMs;
+      breakdown[m.clientType].latencyCount++;
+      totalLatency += m.latencyMs;
+      latencyCount++;
+    }
+    if (m.fps !== undefined) {
+      breakdown[m.clientType].totalFps += m.fps;
+      breakdown[m.clientType].fpsCount++;
+      totalFps += m.fps;
+      fpsCount++;
+    }
+    if (lastReportAt === undefined || m.reportedAt > lastReportAt) {
+      lastReportAt = m.reportedAt;
+    }
+  }
+
+  const clientBreakdown: Record<string, { count: number; averageLatencyMs: number; averageFps: number }> = {};
+  for (const [type, data] of Object.entries(breakdown)) {
+    clientBreakdown[type] = {
+      count: data.count,
+      averageLatencyMs: data.latencyCount > 0 ? Math.round(data.totalLatency / data.latencyCount) : 0,
+      averageFps: data.fpsCount > 0 ? Math.round(data.totalFps / data.fpsCount) : 0,
+    };
+  }
+
+  return {
+    totalReports: clientMetrics.length,
+    averageLatencyMs: latencyCount > 0 ? Math.round(totalLatency / latencyCount) : 0,
+    averageFps: fpsCount > 0 ? Math.round(totalFps / fpsCount) : 0,
+    clientBreakdown,
+    ...(lastReportAt !== undefined && { lastReportAt }),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
@@ -192,6 +360,11 @@ export function resetStore(): void {
   for (const [k, v] of defaultNpcs.entries()) {
     npcs.set(k, { ...v });
   }
+  audioScenes.clear();
+  activeSceneId = undefined;
+  feedbackEntries.length = 0;
+  sessionNotes.length = 0;
+  clientMetrics.length = 0;
 }
 
 // Re-export types used by store consumers
